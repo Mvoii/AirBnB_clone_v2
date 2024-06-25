@@ -6,14 +6,17 @@ import json
 import os
 import MySQLdb
 import sqlalchemy
-
-from models import storage
-
 import unittest
+import MySQLdb
 from unittest.mock import patch
 from io import StringIO
 
 from console import HBNBCommand
+from models import storage
+from models.state import State
+
+
+
 
 class TestHBNBCommand(unittest.TestCase):
 
@@ -70,6 +73,42 @@ class TestHBNBCommand(unittest.TestCase):
         self.assertEqual(mock_stdout.getvalue(), "** class name missing **\n")
         self.cli.onecmd("update InvalidClass")
         self.assertEqual(mock_stdout.getvalue(), "** class doesn't exist **\n")
+
+class TestCreateState(unittest.TestCase):
+    def setUp(self):
+        self.conn = MySQLdb.connect(
+            host=os.getenv('HBNB_MYSQL_HOST'),
+            user=os.getenv('HBNB_MYSQL_USER'),
+            passwd=os.getenv('HBNB_MYSQL_PWD'),
+            db=os.getenv('HBNB_MYSQL_DB')
+        )
+        self.cur = self.conn.cursor()
+        self.cli = HBNBCommand()
+
+    def tearDown(self):
+        self.cur.close()
+        self.conn.close()
+
+    @unittest.skipIf(os.getenv('HBNB_TYPE_STORAGE') != 'db', "only relevant for db storage")
+    def test_create_state(self):
+        # Get initial count
+        self.cur.execute("SELECT COUNT(*) FROM states")
+        initial_count = self.cur.fetchone()[0]
+
+        # Execute console command
+        self.cli.onecmd('create State name="California"')
+
+        # Get new count
+        self.cur.execute("SELECT COUNT(*) FROM states")
+        new_count = self.cur.fetchone()[0]
+
+        # Assert
+        self.assertEqual(new_count, initial_count + 1)
+
+        # Verify the state was created correctly
+        self.cur.execute("SELECT * FROM states WHERE name='California'")
+        result = self.cur.fetchone()
+        self.assertIsNotNone(result)
 
 if __name__ == '__main__':
     unittest.main()
